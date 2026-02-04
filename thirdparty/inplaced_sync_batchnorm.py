@@ -150,11 +150,16 @@ class SyncBatchNormSwish(_BatchNorm):
 
         need_sync = self.training or not self.track_running_stats
         if need_sync:
-            process_group = torch.distributed.group.WORLD
-            if self.process_group:
-                process_group = self.process_group
-            world_size = torch.distributed.get_world_size(process_group)
-            need_sync = world_size > 1
+            # Check if distributed training is initialized
+            if torch.distributed.is_available() and torch.distributed.is_initialized():
+                process_group = torch.distributed.group.WORLD
+                if self.process_group:
+                    process_group = self.process_group
+                world_size = torch.distributed.get_world_size(process_group)
+                need_sync = world_size > 1
+            else:
+                # Single GPU training - no synchronization needed
+                need_sync = False
 
         # fallback to framework BN when synchronization is not necessary
         if not need_sync:

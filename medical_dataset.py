@@ -7,6 +7,9 @@ from PIL import Image
 class MedicalImageDataset(Dataset):
     def __init__(self, csv_path, image_root, image_size=256, transform=None):
         self.df = pd.read_csv(csv_path)
+        #filter rows with missing images
+        self.df = self.df[self.df.iloc[:, 0].apply(lambda rel_path: os.path.exists(os.path.join(image_root, rel_path)))]
+
         self.image_root = image_root
         self.image_size = image_size
 
@@ -21,9 +24,10 @@ class MedicalImageDataset(Dataset):
 
     def __getitem__(self, idx):
         rel_path = self.df.iloc[idx, 0]
+        
         img_path = os.path.join(self.image_root, rel_path)
 
         image = Image.open(img_path).convert("RGB")  
         image = self.transform(image)
 
-        return image
+        return image, 0  # Return image and a dummy label (0) for compatibility
