@@ -320,7 +320,7 @@ def init_processes(rank, size, fn, args):
     os.environ['MASTER_ADDR'] = args.master_address
     os.environ['MASTER_PORT'] = '6020'
     torch.cuda.set_device(args.local_rank)
-    dist.init_process_group(backend='nccl', init_method='env://', rank=rank, world_size=size)
+    dist.init_process_group(backend='gloo', init_method='env://', rank=rank, world_size=size)
     fn(args)
     cleanup()
 
@@ -332,7 +332,8 @@ def cleanup():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('encoder decoder examiner')
     # experimental results
-    parser.add_argument('--root', type=str, default='/public/ATIQA/experiments',
+    parser.add_argument('--xp', type=int, default='1',)
+    parser.add_argument('--root', type=str, default='./',
                         help='location of the results')
     parser.add_argument('--save', type=str, default='exp',
                         help='id used for storing intermediate results')
@@ -340,10 +341,10 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='medical',
                         choices=['medical'],
                         help='which dataset to use')
-    parser.add_argument('--data', type=str, default='/public/ATIQA/Datasets/iu_xray/',
+    parser.add_argument('--data', type=str, default='.' ,
                         help='location of the data corpus')
     # optimization
-    parser.add_argument('--batch_size', type=int, default=2,
+    parser.add_argument('--batch_size', type=int, default=1,
                         help='batch size per GPU')
     parser.add_argument('--learning_rate', type=float, default=1e-2,
                         help='init learning rate')
@@ -435,7 +436,7 @@ if __name__ == '__main__':
     args.save = args.root + '/eval-' + args.save
     utils.create_exp_dir(args.save)
 
-    size = args.num_process_per_node
+    size = args.xp #num_process_per_node
 
     if size > 1:
         args.distributed = True
@@ -453,9 +454,12 @@ if __name__ == '__main__':
         for p in processes:
             p.join()
     else:
-        # for debugging
-        print('starting in debug mode')
-        args.distributed = True
-        init_processes(0, size, main, args)
+        # Single GPU mode - no distributed training (Windows compatible)
+        print('Starting in single GPU mode (no distributed training)')
+        args.distributed = False
+        args.global_rank = 0
+        args.local_rank = 0
+        torch.cuda.set_device(0)
+        main(args)
 
 
